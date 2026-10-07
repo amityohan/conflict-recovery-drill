@@ -1,15 +1,23 @@
+const assert = require('node:assert/strict');
 const checkout = require('./checkout');
 
-const items = [
-    { name: 'apple', price: 10.00 }
+const cases = [
+    {
+        name: 'single item discount and tax',
+        items: [{ name: 'apple', price: 10.00 }],
+        expected: 9.45
+    },
+    {
+        name: 'multiple items with final rounding',
+        items: [
+            { name: 'apple', price: 2.99 },
+            { name: 'banana', price: 4.99 }
+        ],
+        expected: 7.54
+    }
 ];
 
-const total = checkout(items);
-console.log(`Final Total: $${total}`);
-
-if (total === 9.45) {
-    console.log("SUCCESS: Calculation is correct.");
-} else {
-    console.log(`FAILURE: Expected $9.45 but got $${total}`);
-    process.exit(1);
+for (const testCase of cases) {
+    assert.equal(checkout(testCase.items), testCase.expected, testCase.name);
+    console.log(`SUCCESS: ${testCase.name}`);
 }

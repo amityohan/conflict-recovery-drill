@@ -1,42 +1,17 @@
 # Conflict Recovery Walkthrough
 
-## 1. Problem Identification
-The repository was in a critical state following several failed integration attempts:
-- **`main` Branch Corruption**: The `main` branch contained raw git conflict markers in `checkout.js`, making the codebase unrunnable.
-- **WIP Commits**: Feature branches were merged with unresolved conflicts and "Work In Progress" commit messages.
-- **Duplicate History**: A rounding fix was cherry-picked onto `main` while also existing in feature branches, causing diverged history.
-- **Divergent Feature Logic**: Two major features (`discounts` and `tax-v2`) were developed in isolation and collided in the same logic block.
+## Initial State
 
-## 2. Recovery Strategy: The "Clean Rebuild"
-Instead of trying to patch the broken `main`, I used a reconstruction approach:
-1. **Reset to Last Known Good State**: I identified the last stable commit before the messy merges.
-2. **Isolation**: Created a dedicated `recovery/stable-release` branch to work safely.
-3. **Sequential Integration**: 
-   - Integrated the `discounts` feature first.
-   - Resolved conflicts manually to ensure the `rounding-fix` (already on main) was preserved.
-   - Integrated the `tax-v2` feature second.
-   - Combined all three logics (Discount -> Tax -> Rounding) into a single functional pipeline.
+The required history and branch checks showed `main` and `origin/main` at `ba3ac47` with a clean working tree. No `feature/*`, `bugfix/*`, or `integration` branch refs were available. The report's asserted conflict commits (`0565dcf` and `d050dd7`) were absent, and `checkout.js` had no conflict markers.
 
-## 3. Implementation Details
-The core logic in `checkout.js` was restored to:
-```javascript
-function checkout(items) {
-    let total = items.reduce(...);
-    total = total * 0.9; // 10% Discount
-    total = total * 1.05; // 5% Tax
-    return Math.round(total * 100) / 100; // Final Rounding
-}
-```
+The history does show the two checkout changes that could collide: `fea73ef` implements a 10% discount, while `3f1514d` implements 5% tax. They are integrated by distinct merge commits, `6f3eb9b` and `1c47c61`. The resulting function applies the discount, then tax, and rounds the final amount to cents. Since that combined implementation is already in the checked-out mainline, creating another merge or resolving fabricated markers would not be a safe recovery.
 
-## 4. Validation Evidence
-A validation script `test.js` was created to verify the business logic.
-**Test Case**: 
-- Input: \$10.00 apple.
-- Expected: \$9.45 (\$10.00 - 10% = \$9.00; \$9.00 + 5% = \$9.45).
-- Result: **SUCCESS**.
+## Recovery Actions
 
-## 5. Final Repository State
-- Clean, linear history for features.
-- Descriptive commit messages.
-- No conflict markers.
-- Ready for production deployment.
+I created `recovery/main-fix` from the current `main` and reverted `0fbf8d4`, which added only `api.js` with a `Production ready?` console message. Revert was appropriate because the commit is part of shared history; reset would rewrite that history and could invalidate other clones. I did not cherry-pick a feature: the valid discount, tax, and rounding behavior is already present, and no source branch refs exist to select from.
+
+The supplied checkout test passed after the revert. It now also checks a multi-item total that exercises final cent rounding. No feature merge was run because no conflicting feature ref is present in this clone.
+
+## Outcome and Limits
+
+The recovery branch removes the production-readiness placeholder without rewriting `main` and preserves the integrated checkout calculation. The current test confirms two calculation cases, but this repository snapshot has no service startup/build setup, so the test alone cannot certify deployment readiness. The conflict-resolution claims in the original report should not be repeated as facts: the referenced commits and branch refs are unavailable here.
